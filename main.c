@@ -10,7 +10,7 @@
 enum {LEFT=1, UP, RIGHT, DOWN, STOP_GAME=KEY_F(10)};
 enum {MAX_TAIL_SIZE=100, START_TAIL_SIZE=3, MAX_FOOD_SIZE=20, FOOD_EXPIRE_SECONDS=10};
 
-
+#define CONTROLS 5 // число символов для управления
 // Здесь храним коды управления змейкой
 struct control_buttons
 {
@@ -18,9 +18,13 @@ struct control_buttons
     int up;
     int left;
     int right;
-}control_buttons;
+} control_buttons;
 
-struct control_buttons default_controls = {KEY_DOWN, KEY_UP, KEY_LEFT, KEY_RIGHT};
+struct control_buttons default_controls[CONTROLS] = { {KEY_DOWN, KEY_UP, KEY_LEFT, KEY_RIGHT},
+                                                        {0x73, 0x77, 0x61, 0x64}, 
+                                                        {0x53, 0x57, 0x41, 0x44},
+                                                        {0xFFFFFFEB, 0xFFFFFFE6, 0xFFFFFFE4, 0xFFFFFFA2},
+                                                        {0xFFFFFF9B, 0xFFFFFF96, 0xFFFFFF94, 0xFFFFFF82} };
 
 /*
  Голова змейки содержит в себе
@@ -36,7 +40,7 @@ typedef struct snake_t
     int direction;
     size_t tsize;
     struct tail_t *tail;
-    struct control_buttons controls;
+    struct control_buttons * controls;
 } snake_t;
 
 /*
@@ -56,6 +60,7 @@ void initTail(struct tail_t t[], size_t size)
         t[i]=init_t;
     }
 }
+
 void initHead(struct snake_t *head, int x, int y)
 {
     head->x = x;
@@ -65,7 +70,7 @@ void initHead(struct snake_t *head, int x, int y)
 
 void initSnake(snake_t *head, size_t size, int x, int y)
 {
-tail_t*  tail  = (tail_t*) malloc(MAX_TAIL_SIZE*sizeof(tail_t));
+    tail_t*  tail  = (tail_t*) malloc(MAX_TAIL_SIZE*sizeof(tail_t));
     initTail(tail, MAX_TAIL_SIZE);
     initHead(head, x, y);
     head->tail = tail; // прикрепляем к голове хвост
@@ -110,21 +115,9 @@ void go(struct snake_t *head)
     refresh();
 }
 
-void changeDirection(struct snake_t* snake, const int32_t key)
-{
-    if (key == snake->controls.down)
-        snake->direction = DOWN;
-    else if (key == snake->controls.up)
-        snake->direction = UP;
-    else if (key == snake->controls.right)
-        snake->direction = RIGHT;
-    else if (key == snake->controls.left)
-        snake->direction = LEFT;
-}
-
 /*
  Движение хвоста с учетом движения головы
- */
+*/
 void goTail(struct snake_t *head)
 {
     char ch = '*';
@@ -139,9 +132,52 @@ void goTail(struct snake_t *head)
     head->tail[0].y = head->y;
 }
 
+/* 
+функция проверки корректности выбранного направляения. 
+Служит для запрета двигаться сразу в противоположном направлении 
+*/
+int checkDirection(snake_t* snake, int32_t key, int32_t keySetting){
+    if((snake->direction == DOWN) != (key == snake->controls[keySetting].up))
+        return 1;
+    else if((snake->direction == UP) != (key == snake->controls[keySetting].down))
+        return 1;
+    else if((snake->direction == RIGHT) != (key == snake->controls[keySetting].left))
+        return 1;
+    else if((snake->direction == LEFT) != (key == snake->controls[keySetting].right))
+        return 1;
+
+    return 0;
+}
+
+/*
+Функция для выбора направления движения змейки
+*/
+void changeDirection(struct snake_t* snake, const int32_t key)
+{
+    mvprintw(1, 0,"key - %x , direction - %d", key, snake->direction);
+    for(int i = 0; i < CONTROLS; i++){
+        if (key == snake->controls[i].down){
+            if(checkDirection(snake, key, i))
+                snake->direction = DOWN;
+        }
+        else if (key == snake->controls[i].up){
+            if(checkDirection(snake, key, i))
+                snake->direction = UP;
+        }
+        else if (key == snake->controls[i].right){
+            if(checkDirection(snake, key, i))
+                snake->direction = RIGHT;
+        }
+        else if (key == snake->controls[i].left){
+            if(checkDirection(snake, key, i))
+                snake->direction = LEFT;
+        }
+    }
+}
+
 int main()
 {
-snake_t* snake = (snake_t*)malloc(sizeof(snake_t));
+    snake_t* snake = (snake_t*)malloc(sizeof(snake_t));
     initSnake(snake,START_TAIL_SIZE,10,10);
     initscr();
     keypad(stdscr, TRUE); // Включаем F1, F2, стрелки и т.д.
