@@ -190,7 +190,7 @@ int checkDirection(snake_t* snake, int32_t key, int32_t keySetting){
 */
 void changeDirection(struct snake_t* snake, const int32_t key)
 {
-    mvprintw(1, 0,"key - %x , direction - %d", key, snake->direction);
+    mvprintw(1, 11," | key - %x , direction - %d", key, snake->direction);
     for(int i = 0; i < CONTROLS; i++){
         if (key == snake->controls[i].down){
             if(checkDirection(snake, key, i))
@@ -247,18 +247,28 @@ _Bool haveEat(struct snake_t *head, struct food f[])
     return 0;
 }
 
+/* Функция вывода уровня игры (размера хвоста) */
+void printLevel(struct snake_t *head){
+    mvprintw(1, 0, "Level - %d ", head->tsize - START_TAIL_SIZE - 1);
+}
+
 /*
  Увеличение хвоста на 1 элемент
  */
-
 void addTail(struct snake_t *head)
 {
-    if(head == NULL || head->tsize>MAX_TAIL_SIZE)
+    if(head == NULL || head->tsize > MAX_TAIL_SIZE)
     {
-        mvprintw(0, 0, "Can't add tail");
+        mvprintw(1, 0, "Can't add tail");
         return;
     }
     head->tsize++;
+}
+
+/* Функция выводит окно окончания игры */
+void printExit(struct snake_t *head){
+    mvprintw(10, 0, "End game!");
+    mvprintw(11, 0, "Level - %d ", head->tsize - START_TAIL_SIZE - 1);
 }
 
 int main()
@@ -287,6 +297,11 @@ int main()
         {
             addTail(snake);
         }
+        printLevel(snake);
+    }
+    while( key_pressed ){
+        key_pressed = getch();
+        printExit(snake);
     }
     free(snake->tail);
     free(snake);
