@@ -6,7 +6,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MIN_Y  2
+#define MIN_Y  3
+double DELAY = 0.1;
+_Bool PAUSE = false;
 enum {LEFT=1, UP, RIGHT, DOWN, STOP_GAME=KEY_F(10)};
 enum {MAX_TAIL_SIZE=100, START_TAIL_SIZE=3, MAX_FOOD_SIZE=20, FOOD_EXPIRE_SECONDS=10, SEED_NUMBER=3};
 
@@ -190,7 +192,6 @@ int checkDirection(snake_t* snake, int32_t key, int32_t keySetting){
 */
 void changeDirection(struct snake_t* snake, const int32_t key)
 {
-    mvprintw(1, 11," | key - %x , direction - %d", key, snake->direction);
     for(int i = 0; i < CONTROLS; i++){
         if (key == snake->controls[i].down){
             if(checkDirection(snake, key, i))
@@ -259,16 +260,33 @@ void addTail(struct snake_t *head)
 {
     if(head == NULL || head->tsize > MAX_TAIL_SIZE)
     {
-        mvprintw(1, 0, "Can't add tail");
+        mvprintw(0, 0, "Can't add tail");
         return;
     }
     head->tsize++;
 }
 
+void setPause(int key){
+    // реализация установки на паузу
+    if(key == 'P' || key == 'p'){
+        if(PAUSE == 1){
+            PAUSE = 0;
+            mvprintw(2, (getmaxx(stdscr) - 7) / 2 ,"-------");
+        }
+        else {
+            PAUSE = 1;
+            mvprintw(2, (getmaxx(stdscr) - 7) / 2 ," PAUSE ");
+        }
+    }
+}
+
 /* Функция выводит окно окончания игры */
 void printExit(struct snake_t *head){
-    mvprintw(10, 0, "End game!");
-    mvprintw(11, 0, "Level - %d ", head->tsize - START_TAIL_SIZE - 1);
+    int maxx = getmaxx(stdscr);
+    mvprintw(9, (maxx - 13) / 2 , "*************");
+    mvprintw(10, (maxx - 11) / 2 , " END GAME! ");
+    mvprintw(11, (maxx - 11) / 2 , " Level - %d ", head->tsize - START_TAIL_SIZE - 1);
+    mvprintw(12, (maxx - 13) / 2 , "*************");
 }
 
 int main()
@@ -280,29 +298,45 @@ int main()
     raw();                // Откдючаем line buffering
     noecho();            // Отключаем echo() режим при вызове getch
     curs_set(FALSE);    //Отключаем курсор
-    mvprintw(0, 0,"Use arrows for control. Press 'F10' for EXIT");
+    mvprintw(0, 0," Use arrows for control. Press 'F10' for EXIT");
     timeout(0);    //Отключаем таймаут после нажатия клавиши в цикле
     initFood(food, MAX_FOOD_SIZE);
     putFood(food, SEED_NUMBER);// Кладем зерна
     int key_pressed=0;
+
+    for(int i = 0; i < getmaxx(stdscr); i++)
+        mvprintw(2, i,"-");
+
     while( key_pressed != STOP_GAME )
     {
+        clock_t begin = clock();
         key_pressed = getch(); // Считываем клавишу
-        go(snake);
-        goTail(snake);
-        timeout(100); // Задержка при отрисовке
-        changeDirection(snake, key_pressed);
-        refreshFood(food, SEED_NUMBER);// Обновляем еду
-        if (haveEat(snake,food))
-        {
-            addTail(snake);
+        mvprintw(1, 11," | key - %x , delay - %f", key_pressed, DELAY); // вывод служебной информации
+
+        setPause(key_pressed); // проверка на нажатие кнопки паузы
+
+        if(!PAUSE){
+            go(snake);
+            goTail(snake);
+            changeDirection(snake, key_pressed);
+            refreshFood(food, SEED_NUMBER);// Обновляем еду
+            if (haveEat(snake,food))
+            {
+                DELAY -= 0.001; // повышение скорости движения змейки при съедании еды
+                addTail(snake);
+            }
+            refresh();
+            printLevel(snake);
+            while ((double)(clock() - begin) / CLOCKS_PER_SEC < DELAY) {} // Задержка при отрисовке 
         }
-        printLevel(snake);
     }
+
+    // окончание игры
     while( key_pressed ){
         key_pressed = getch();
         printExit(snake);
     }
+
     free(snake->tail);
     free(snake);
     endwin(); // Завершаем режим curses mod
